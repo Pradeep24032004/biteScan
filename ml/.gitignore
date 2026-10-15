@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+data/bangalore/**/*.jpg
+data/bangalore/**/*.jpeg
+data/bangalore/**/*.png
+data/bangalore/**/*.heic
+runs/
+data/commons/**/*.jpg
+runs_fetch.log
+data/commons/listing_cache.json
+kaggle/dataset/
+kaggle/output/
+tools/
+data/openverse/**/*.jpg

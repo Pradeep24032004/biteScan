@@ -1,0 +1,27 @@
+Skipping 15 classes with < 20 images: akki_roti, benne_masala_dosa, bisi_bele_bath, chitranna, chow_chow_bath, masala_puri, palya, pesarattu, puliyogare, ragi_mudde, ragi_roti, set_dosa, tender_coconut, thatte_idli, vangi_bath
+41 classes, 3643 train / 405 val images, device=mps
+  epoch 1 step 0/56 loss 4.666
+epoch 1/12: train loss 3.243, val top-1 41.7%, top-5 70.9% (66s)
+  epoch 2 step 0/56 loss 1.984
+epoch 2/12: train loss 1.896, val top-1 49.1%, top-5 79.0% (54s)
+  epoch 3 step 0/56 loss 1.650
+epoch 3/12: train loss 1.531, val top-1 52.8%, top-5 81.2% (56s)
+  epoch 4 step 0/56 loss 1.533
+epoch 4/12: train loss 1.334, val top-1 56.0%, top-5 78.5% (68s)
+  epoch 5 step 0/56 loss 1.205
+epoch 5/12: train loss 1.171, val top-1 56.8%, top-5 82.0% (72s)
+  epoch 6 step 0/56 loss 1.096
+epoch 6/12: train loss 1.070, val top-1 61.7%, top-5 82.5% (67s)
+  epoch 7 step 0/56 loss 1.093
+epoch 7/12: train loss 1.005, val top-1 63.5%, top-5 81.0% (66s)
+  epoch 8 step 0/56 loss 0.961
+epoch 8/12: train loss 0.953, val top-1 60.7%, top-5 82.2% (71s)
+  epoch 9 step 0/56 loss 0.923
+epoch 9/12: train loss 0.911, val top-1 63.2%, top-5 83.5% (71s)
+  epoch 10 step 0/56 loss 0.859
+epoch 10/12: train loss 0.879, val top-1 63.5%, top-5 82.2% (76s)
+  epoch 11 step 0/56 loss 0.809
+epoch 11/12: train loss 0.860, val top-1 64.0%, top-5 82.7% (69s)
+  epoch 12 step 0/56 loss 0.857
+epoch 12/12: train loss 0.869, val top-1 63.7%, top-5 82.5% (72s)
+Best val top-1 64.0%. Saved runs/v0/best.pt and runs/v0/metrics.json

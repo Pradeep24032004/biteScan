@@ -1,0 +1,18 @@
+download finished 18:28
+  pizza: kept 80, rejected 0 (license)
+  burger: kept 80, rejected 2 (license)
+  french_fries: kept 80, rejected 0 (license)
+  pasta: kept 80, rejected 1 (license)
+  hakka_noodles: kept 70, rejected 0 (license)
+  club_sandwich: kept 80, rejected 0 (license)
+  caesar_salad: kept 80, rejected 0 (license)
+  fried_chicken: kept 80, rejected 0 (license)
+  grilled_chicken: kept 80, rejected 0 (license)
+  shawarma: kept 80, rejected 0 (license)
+  chocolate_cake: kept 80, rejected 0 (license)
+104 classes, 7465 train / 828 val photos
+smallest: veg_pulao 20, ragi_mudde 20, rajma_chawal 20, besan_ladoo 20, gobi_manchurian 20, bisi_bele_bath 21, masala_vada 22, keema 22
+(eval):1: no such file or directory: .venv/bin/python /private/tmp/claude-501/-Users-mpradeep-Projects-biteScan/2c209d09-7dac-455b-aa25-7683f63835c8/scratchpad/kaggle_ipv4.py
+dataset: (eval):1: no such file or directory: .venv/bin/python /private/tmp/claude-501/-Users-mpradeep-Projects-biteScan/2c209d09-7dac-455b-aa25-7683f63835c8/scratchpad/kaggle_ipv4.py 18:48
+(eval):1: no such file or directory: .venv/bin/python /private/tmp/claude-501/-Users-mpradeep-Projects-biteScan/2c209d09-7dac-455b-aa25-7683f63835c8/scratchpad/kaggle_ipv4.py
+(eval):1: no such file or directory: .venv/bin/python /private/tmp/claude-501/-Users-mpradeep-Projects-biteScan/2c209d09-7dac-455b-aa25-7683f63835c8/scratchpad/kaggle_ipv4.py

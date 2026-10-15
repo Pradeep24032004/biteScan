@@ -1,25 +1,65 @@
 {
   "expo": {
-    "name": "biteScan-tmp",
-    "slug": "biteScan-tmp",
+    "name": "BiteScan",
+    "slug": "bitescan",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.mpradeep.bitescan",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "appleTeamId": "A767Z4L4DT"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-sqlite",
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "BiteScan uses the camera to recognise the food on your plate.",
+          "photosPermission": "BiteScan reads a food photo you choose so it can recognise the dish."
+        }
+      ],
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "BiteScan reads your weight, body fat % and lean mass (for example from InBody) to set your daily calorie target.",
+          "NSHealthUpdateUsageDescription": false,
+          "background": false
+        }
+      ],
+      [
+        "llama.rn",
+        {
+          "enableEntitlements": false,
+          "enableOpenCLAndHexagon": false
+        }
+      ],
+      "./plugins/withSceneLifecycle",
+      "./plugins/withoutPushEntitlement"
+    ],
+    "scheme": "bitescan",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "experiments": {
+      "typedRoutes": true
     },
     "android": {
+      "package": "com.mpradeep.bitescan",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
     }
   }
 }

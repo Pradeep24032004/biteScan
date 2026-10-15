@@ -1,0 +1,48 @@
+Skipping 19 classes with < 20 images: akki_roti, avial, benne_masala_dosa, boondi_ladoo, chow_chow_bath, dabeli, ice_cream, jeera_rice, kaju_katli, maggi, masala_puri, palya, pesarattu, puliyogare, ragi_roti, set_dosa, thatte_idli, thepla, vangi_bath
+104 classes, 7465 train / 828 val images, device=mps
+  epoch 1 step 0/155 loss 4.883
+  epoch 1 step 100/155 loss 4.248
+epoch 1/15: train loss 3.779, val top-1 36.7%, top-5 61.1% (221s)
+  epoch 2 step 0/155 loss 2.981
+  epoch 2 step 100/155 loss 2.566
+epoch 2/15: train loss 2.512, val top-1 37.7%, top-5 64.9% (235s)
+  epoch 3 step 0/155 loss 2.417
+  epoch 3 step 100/155 loss 2.197
+epoch 3/15: train loss 2.121, val top-1 44.2%, top-5 69.4% (244s)
+  epoch 4 step 0/155 loss 1.797
+  epoch 4 step 100/155 loss 1.874
+epoch 4/15: train loss 1.835, val top-1 46.6%, top-5 71.7% (252s)
+  epoch 5 step 0/155 loss 1.747
+  epoch 5 step 100/155 loss 1.641
+epoch 5/15: train loss 1.605, val top-1 49.4%, top-5 74.6% (255s)
+  epoch 6 step 0/155 loss 1.556
+  epoch 6 step 100/155 loss 1.452
+epoch 6/15: train loss 1.441, val top-1 48.6%, top-5 73.1% (258s)
+  epoch 7 step 0/155 loss 1.281
+  epoch 7 step 100/155 loss 1.339
+epoch 7/15: train loss 1.306, val top-1 54.8%, top-5 75.2% (259s)
+  epoch 8 step 0/155 loss 1.337
+  epoch 8 step 100/155 loss 1.195
+epoch 8/15: train loss 1.192, val top-1 53.7%, top-5 76.0% (262s)
+  epoch 9 step 0/155 loss 1.077
+  epoch 9 step 100/155 loss 1.115
+epoch 9/15: train loss 1.108, val top-1 55.4%, top-5 77.4% (261s)
+  epoch 10 step 0/155 loss 1.103
+  epoch 10 step 100/155 loss 1.066
+epoch 10/15: train loss 1.060, val top-1 56.6%, top-5 76.8% (262s)
+  epoch 11 step 0/155 loss 0.988
+  epoch 11 step 100/155 loss 1.023
+epoch 11/15: train loss 1.010, val top-1 55.9%, top-5 77.3% (261s)
+  epoch 12 step 0/155 loss 0.990
+  epoch 12 step 100/155 loss 0.986
+epoch 12/15: train loss 0.986, val top-1 56.3%, top-5 76.6% (263s)
+  epoch 13 step 0/155 loss 0.951
+  epoch 13 step 100/155 loss 0.973
+epoch 13/15: train loss 0.967, val top-1 56.3%, top-5 77.3% (268s)
+  epoch 14 step 0/155 loss 0.965
+  epoch 14 step 100/155 loss 0.950
+epoch 14/15: train loss 0.950, val top-1 56.8%, top-5 77.5% (263s)
+  epoch 15 step 0/155 loss 0.975
+  epoch 15 step 100/155 loss 0.951
+epoch 15/15: train loss 0.951, val top-1 56.9%, top-5 77.8% (262s)
+Best val top-1 56.9%. Saved runs/v2/best.pt and runs/v2/metrics.json

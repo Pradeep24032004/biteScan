@@ -1,0 +1,53 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+
+# Food models: large, regenerated from ml/ (see ml/README.md). Uploaded to EAS via .easignore.
+modules/food-classifier/ios/models/*.gguf
+
+# ---- EAS-only rules (this file replaces .gitignore for build uploads) ----
+# Training data, Python envs, llama.cpp and model runs: not needed to build the app.
+/ml
+/.claude
+
+# The LFM model files are git-ignored above, but the app needs them bundled. Must stay last.
+!modules/food-classifier/ios/models/BiteScanLFM.gguf
+!modules/food-classifier/ios/models/BiteScanLFM-mmproj.gguf

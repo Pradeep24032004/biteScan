@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Food models: large, regenerated from ml/ (see ml/README.md). Uploaded to EAS via .easignore.
+modules/food-classifier/ios/models/*.gguf

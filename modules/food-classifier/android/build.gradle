@@ -1,0 +1,28 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.foodclassifier'
+version = '0.1.0'
+
+android {
+  namespace "expo.modules.foodclassifier"
+  defaultConfig {
+    versionCode 1
+    versionName "0.1.0"
+  }
+  // The LFM2.5-VL GGUF files live next to the iOS ones (ml/ exports them there).
+  sourceSets {
+    main {
+      assets.srcDirs += ["${projectDir}/../ios/models"]
+    }
+  }
+  androidResources {
+    // Uncompressed so the model can be read with openFd() and copied quickly.
+    noCompress += ["gguf"]
+  }
+  lintOptions {
+    abortOnError false
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["FoodClassifierModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.foodclassifier.FoodClassifierModule"]
+  }
+}
