@@ -1,9 +1,15 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { getDailyTotals, getProfile, getWeights, type DayTotal, type WeightEntry } from '@/db/database';
-import { calculateTarget, shiftDateKey, toDateKey, type Profile } from '@/lib/nutrition';
+import { getBodyLogs, getDailyTotals, getProfile, getWeights, getWorkoutsSince, type DayTotal, type WeightEntry } from '@/db/database';
+import { burnTarget, calculateTarget, shiftDateKey, toDateKey, type Profile } from '@/lib/nutrition';
 
 export type Insight = { tone: 'good' | 'warning' | 'info'; title: string; body: string };
+
+/** One thing that decides whether the user is moving towards their goal. */
+export type GoalCheck = { label: string; detail: string; ok: boolean };
+
+/** Overall verdict for the last 7 days. */
+export type GoalStatus = { verdict: 'towards' | 'away' | 'starting'; checks: GoalCheck[] };
 
 export type History = {
   target: number;
@@ -22,6 +28,10 @@ export type History = {
   weightTrendKgPerWeek: number | null;
   drifting: boolean;
   insights: Insight[];
+  /** Exercise calories burned per day over the last 7 days, and the daily goal. */
+  burnedWeek: number;
+  burnTarget: number;
+  status: GoalStatus;
 };
 
 /** A day counts as on target when it's within the band that fits the goal. */
@@ -36,9 +46,11 @@ export async function analyseHistory(db: SQLiteDatabase, profileArg?: Profile): 
   const target = calculateTarget(profile);
   const today = toDateKey(new Date());
   const from = shiftDateKey(today, -29);
-  const [totals, weights] = await Promise.all([
+  const [totals, weights, workouts, bodyLogs] = await Promise.all([
     getDailyTotals(db, from, today),
     getWeights(db, shiftDateKey(today, -60)),
+    getWorkoutsSince(db, shiftDateKey(today, -6)),
+    getBodyLogs(db),
   ]);
   const byDate = new Map(totals.map((t) => [t.date, t]));
   const day = (offset: number): DayTotal => {
@@ -109,7 +121,42 @@ export async function analyseHistory(db: SQLiteDatabase, profileArg?: Profile): 
     insights.push({ tone: 'good', title: 'Moving towards your goal', body: `${Math.abs(trend)} kg/week in the right direction.` });
   }
 
+  // ---- Towards or away from the goal: eating, exercise, body change and logging ----
+  const logged = week.filter((d) => d.items > 0);
+  const onTargetDays = logged.filter((d) => onTarget(d.kcal, target, profile)).length;
+  const burnGoal = burnTarget(profile);
+  const burnedWeek = Math.round(workouts.reduce((s, w) => s + w.kcal, 0));
+  const checks: GoalCheck[] = [];
+  if (logged.length >= 2) {
+    checks.push({
+      label: 'Eating',
+      detail: `${onTargetDays} of ${logged.length} logged days on target`,
+      ok: onTargetDays >= Math.ceil(logged.length / 2) && !calorieDrifting,
+    });
+  }
+  checks.push({
+    label: 'Exercise',
+    detail: `${burnedWeek.toLocaleString('en-IN')} of ${(burnGoal * 7).toLocaleString('en-IN')} kcal burned this week`,
+    ok: burnedWeek >= burnGoal * 7 * 0.7,
+  });
+  // Body change: body fat from InBody for shred/recomp when there are two scans, else the weight trend.
+  const fatScans = bodyLogs.filter((l) => l.bodyFatPct != null && l.date >= shiftDateKey(today, -60));
+  if ((profile.goalPlan === 'shred' || profile.goalPlan === 'recomp') && fatScans.length >= 2) {
+    const change = Math.round((fatScans[fatScans.length - 1].bodyFatPct! - fatScans[0].bodyFatPct!) * 10) / 10;
+    checks.push({ label: 'Body fat', detail: `${change > 0 ? '+' : ''}${change}% since ${new Date(`${fatScans[0].date}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`, ok: change < 0 });
+  } else if (trend != null) {
+    const right = profile.goal === 'maintain' ? Math.abs(trend) <= 0.3 : Math.sign(trend) === (profile.goal === 'lose' ? -1 : 1);
+    checks.push({ label: 'Weight', detail: `${trend > 0 ? '+' : ''}${trend} kg a week`, ok: right && !weightDrifting });
+  }
+  checks.push({ label: 'Logging', detail: `${logged.length} of 7 days`, ok: logged.length >= 4 });
+  const okCount = checks.filter((c) => c.ok).length;
+  const verdict: GoalStatus['verdict'] =
+    logged.length < 2 && trend == null ? 'starting' : drifting || okCount < checks.length / 2 ? 'away' : 'towards';
+
   return {
+    burnedWeek,
+    burnTarget: burnGoal,
+    status: { verdict, checks },
     target,
     week,
     daysLogged: week.filter((d) => d.items > 0).length,

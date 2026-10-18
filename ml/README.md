@@ -1,5 +1,7 @@
 # BiteScan food model
 
+> The app uses **only** the fine-tuned LFM2.5-VL model (see below). The EfficientNet scripts (`train.py`, `export_coreml.py`) were an earlier baseline and are no longer shipped.
+
 Fine-tunes a pretrained image model (EfficientNet-B0) on Indian food photos and exports it to Core ML, so dish recognition runs on the iPhone with no internet and no API key.
 
 ## Data
@@ -41,14 +43,20 @@ LoRA fine-tune of [LiquidAI/LFM2.5-VL-450M](https://huggingface.co/LiquidAI/LFM2
 | LFM2.5-VL-450M, no fine-tune | 5% |
 | EfficientNet-B2 (`train.py`, run `v1`) | 59.7% |
 | LFM2.5-VL-450M LoRA, 1.5 epochs on M4 (`lfm/train.py`) | 62.3% |
-| **LFM2.5-VL-450M LoRA, 3 epochs on Kaggle T4 (`kaggle/train_kaggle.py`)** | **64.2%** |
+| LFM2.5-VL-450M LoRA, 3 epochs on Kaggle T4 (`kaggle/train_kaggle.py`) | 64.2% |
+
+Later runs (different, larger test sets): 104 dishes → 66.2%; **126 dishes (desserts, drinks, foreign) → 66.5%** (app 1.0.2).
 
 GGUF export kept accuracy (62.5% PyTorch vs 62.5% q8 vs 63.0% Q4_K_M on a 200-photo subset).
 
 ```bash
 export HF_HUB_OFFLINE=1   # this network stalls on Hugging Face calls once models are cached
-# Kaggle: dataset maggalapradeep/bitescan-indian-food (private), notebook maggalapradeep/notebook8b84584ba3
-.venv/bin/kaggle kernels push -p kaggle/notebook --accelerator NvidiaTeslaT4
+# Retrain on Kaggle: builds the dataset, uploads it under a NEW slug (Kaggle pins notebooks to old
+# dataset versions), sets the class-count guard and starts training. Use the next suffix each time.
+# build_dataset.py also packs the nutrition-label examples (build_label_dataset.py) and, if
+# INIT_ADAPTER exists, the previous LoRA as lora_init/: training then continues from it on all labels
+# plus REPLAY_DISHES dish photos (so dish accuracy is kept) and reports dish + label accuracy.
+./kaggle/release.sh v5
 # merge the LoRA into the base model, then convert for llama.cpp / llama.rn
 .venv/bin/python tools/llama.cpp/convert_hf_to_gguf.py runs/lfm-kaggle/merged --outtype f16 --outfile f16.gguf
 tools/llama.cpp/build/bin/llama-quantize f16.gguf ../modules/food-classifier/ios/models/BiteScanLFM.gguf Q4_K_M

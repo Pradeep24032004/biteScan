@@ -27,8 +27,12 @@ export default function RootLayout() {
         <Stack.Screen name="add" options={{ presentation: 'modal', title: 'Add food' }} />
         <Stack.Screen name="scan" options={{ presentation: 'modal', title: 'Scan food' }} />
         <Stack.Screen name="body-input" options={{ presentation: 'modal', title: 'Body numbers' }} />
+        <Stack.Screen name="label" options={{ presentation: 'modal', title: 'Scan a food packet' }} />
         <Stack.Screen name="welcome" options={{ presentation: 'fullScreenModal', headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="exercise/[id]" options={{ title: 'Exercise', headerBackTitle: 'Back' }} />
+        <Stack.Screen name="workout" options={{ title: 'Home workout', headerBackTitle: 'Back' }} />
+        <Stack.Screen name="log-exercise" options={{ presentation: 'modal', title: 'Log exercise' }} />
+        <Stack.Screen name="report" options={{ title: 'Weekly report', headerBackTitle: 'Back' }} />
       </Stack>
     </SQLiteProvider>
   );

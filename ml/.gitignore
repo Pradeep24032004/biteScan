@@ -12,3 +12,7 @@ kaggle/dataset/
 kaggle/output/
 tools/
 data/openverse/**/*.jpg
+# Nutrition-label training data: large, rebuilt by build_label_dataset.py (Open Food Facts)
+data/labels/
+data/labels_off/
+runs_*.log

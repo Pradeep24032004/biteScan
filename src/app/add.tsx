@@ -6,6 +6,7 @@ import { Alert, FlatList, KeyboardAvoidingView, Pressable, ScrollView, StyleShee
 
 import { Button, Card, ChipRow, Pill } from '@/components/ui';
 import { addCustomFood, addEntry, deleteCustomFood, getCustomFoods, getProfile } from '@/db/database';
+import { success } from '@/lib/haptics';
 import { saveTrainingPhoto } from '@/lib/trainingPhotos';
 import { afterFoodChanged } from '@/lib/notifications';
 import { findFood, searchFoods, type Food } from '@/data/foods';
@@ -17,7 +18,7 @@ const QUICK_QUANTITIES = [0.5, 1, 1.5, 2, 3].map((q) => ({ value: q, label: `${q
 export default function AddFoodScreen() {
   // foodId is set when coming from the camera scan with a dish already recognised.
   // photoUri is the scanned photo, saved as a labelled training photo once the user logs a dish.
-  const params = useLocalSearchParams<{ date?: string; meal?: Meal; foodId?: string; photoUri?: string }>();
+  const params = useLocalSearchParams<{ date?: string; meal?: Meal; foodId?: string; photoUri?: string; count?: string }>();
   const date = params.date ?? toDateKey(new Date());
   const [meal, setMeal] = useState<Meal>(params.meal ?? mealForNow());
   const [query, setQuery] = useState('');
@@ -60,6 +61,7 @@ export default function AddFoodScreen() {
         date={date}
         meal={meal}
         photoUri={params.photoUri}
+        counted={params.count && params.foodId === selected.id ? Number(params.count) : undefined}
         onMealChange={setMeal}
         onBack={() => setSelected(null)}
       />
@@ -95,6 +97,16 @@ export default function AddFoodScreen() {
           clearButtonMode="while-editing"
         />
       </View>
+      <Pressable
+        style={styles.packetRow}
+        onPress={() => router.replace({ pathname: '/label', params: { date, meal } })}>
+        <Ionicons name="barcode-outline" size={22} color={colors.primary} />
+        <View style={{ flex: 1 }}>
+          <Text style={[type.body, { fontWeight: '600' }]}>Scan a food packet</Text>
+          <Text style={type.caption}>Chips, biscuits, namkeen — read the nutrition label</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.faint} />
+      </Pressable>
       <FlatList
         data={results}
         keyExtractor={(f) => f.id}
@@ -133,15 +145,17 @@ export default function AddFoodScreen() {
 type PickerProps = {
   food: Food;
   photoUri?: string;
+  /** Pieces the model counted in the photo, if any. */
+  counted?: number;
   date: string;
   meal: Meal;
   onMealChange: (m: Meal) => void;
   onBack: () => void;
 };
 
-function PortionPicker({ food, date, meal, photoUri, onMealChange, onBack }: PickerProps) {
+function PortionPicker({ food, date, meal, photoUri, counted, onMealChange, onBack }: PickerProps) {
   const db = useSQLiteContext();
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(counted ?? 1);
   const [saving, setSaving] = useState(false);
   const scaled = {
     kcal: food.kcal * quantity,
@@ -154,6 +168,7 @@ function PortionPicker({ food, date, meal, photoUri, onMealChange, onBack }: Pic
     setSaving(true);
     await addEntry(db, { date, meal, food_id: food.id, name: food.name, serving: food.serving, quantity, ...scaled });
     if (photoUri && (await getProfile(db)).collectPhotos) saveTrainingPhoto(photoUri, food);
+    success();
     void afterFoodChanged(db);
     router.back();
   };
@@ -183,6 +198,14 @@ function PortionPicker({ food, date, meal, photoUri, onMealChange, onBack }: Pic
 
       <Card>
         <Text style={type.heading}>How much?</Text>
+        {counted != null && (
+          <View style={styles.countedRow}>
+            <Ionicons name="sparkles" size={16} color={colors.primary} />
+            <Text style={[type.label, { color: colors.primary, flex: 1 }]}>
+              AI counted {counted} in your photo — change it if needed.
+            </Text>
+          </View>
+        )}
         <View style={styles.stepper}>
           <Pressable style={styles.stepButton} onPress={() => setQuantity((q) => Math.max(0.5, q - 0.5))}>
             <Ionicons name="remove" size={24} color={colors.primary} />
@@ -271,6 +294,7 @@ function CreateFood({ initialName, onBack, onCreated }: CreateFoodProps) {
 }
 
 const styles = StyleSheet.create({
+  countedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.primarySoft, borderRadius: 10, padding: 10 },
   screen: { flex: 1, backgroundColor: colors.background },
   searchBox: {
     flexDirection: 'row',
@@ -285,6 +309,16 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   searchInput: { flex: 1, paddingVertical: 14, fontSize: 17, color: colors.text },
+  packetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    marginHorizontal: space.lg,
+    marginBottom: space.sm,
+    padding: space.md,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.md,
+  },
   list: { marginHorizontal: space.lg, paddingBottom: 48 },
   separator: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   foodRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 14 },

@@ -9,6 +9,11 @@ import { calculateTarget, toDateKey } from '@/lib/nutrition';
 
 let configured = false;
 
+// Significant under-eating only: under half the target by 8:30 pm, with at least two meals logged
+// (so a day with forgotten entries doesn't trigger it).
+const UNDER_SHARE = 0.5;
+const UNDER_MIN_MEALS = 2;
+
 /** Show banners even while BiteScan is open. Call once at startup. */
 export function configureNotifications() {
   if (configured) return;
@@ -72,14 +77,27 @@ export async function refreshReminders(db: SQLiteDatabase) {
     const target = calculateTarget(profile);
     const has = (meal: string) => entries.some((e) => e.meal === meal);
 
+    const mealsLogged = new Set(entries.map((e) => e.meal)).size;
+    const tooLittle = mealsLogged >= UNDER_MIN_MEALS && eaten < target * UNDER_SHARE;
+
+    if (prefs.underTarget && tooLittle) {
+      await scheduleAt(
+        at(20, 30),
+        'You may be eating too little',
+        `Only ${eaten.toLocaleString('en-IN')} of ${target.toLocaleString('en-IN')} kcal so far. Too little food slows your metabolism and costs muscle — have a proper dinner.`
+      );
+    }
+
     if (prefs.eveningSummary) {
       const left = target - eaten;
       const body =
         entries.length === 0
           ? "You haven't logged anything today. Take a minute to add your meals."
-          : left >= 0
-            ? `${eaten.toLocaleString('en-IN')} kcal eaten, ${left.toLocaleString('en-IN')} left. Nice work today!`
-            : `${eaten.toLocaleString('en-IN')} kcal eaten, ${Math.abs(left).toLocaleString('en-IN')} over your target.`;
+          : tooLittle
+            ? `${eaten.toLocaleString('en-IN')} kcal eaten — well under your ${target.toLocaleString('en-IN')} target. Add anything you missed, or eat a little more.`
+            : left >= 0
+              ? `${eaten.toLocaleString('en-IN')} kcal eaten, ${left.toLocaleString('en-IN')} left. Nice work today!`
+              : `${eaten.toLocaleString('en-IN')} kcal eaten, ${Math.abs(left).toLocaleString('en-IN')} over your target.`;
       await scheduleAt(at(21, 0), 'Your day so far', body);
       await scheduleAt(at(21, 0, 1), 'How did today go?', 'Open BiteScan to check your calories for the day.');
     }
@@ -87,6 +105,13 @@ export async function refreshReminders(db: SQLiteDatabase) {
     if (prefs.mealReminders) {
       if (!has('lunch')) await scheduleAt(at(14, 30), 'Lunch time?', 'Snap your lunch to log it in seconds.');
       if (!has('dinner')) await scheduleAt(at(21, 30), "Don't forget dinner", 'Log dinner so your day is complete.');
+    }
+
+    if (prefs.weeklyReport) {
+      // Next Sunday (or today, if it's Sunday before 7 pm).
+      const sunday = at(19, 0, (7 - new Date().getDay()) % 7);
+      if (sunday.getTime() <= Date.now()) sunday.setDate(sunday.getDate() + 7);
+      await scheduleAt(sunday, 'Your weekly report is ready 📊', 'See how your week went and your tips for next week.');
     }
 
     const history = await analyseHistory(db, profile);

@@ -2,7 +2,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import type * as LlamaRN from 'llama.rn';
 
 import FoodClassifier from '../../modules/food-classifier';
-import { FOODS, findFood, searchFoods, type Food } from '@/data/foods';
+import { FOODS, searchFoods, type Food } from '@/data/foods';
 
 /** Must match the prompt the model was fine-tuned with (ml/lfm/common.py). */
 const PROMPT = 'What Indian dish is in this photo? Reply with only the dish name.';
@@ -12,9 +12,8 @@ const MAX_SUGGESTIONS = 3;
 
 export type Suggestion = {
   food: Food;
-  /** 0–1 from EfficientNet; null for the LFM2.5-VL answer, which has no calibrated score. */
-  confidence: number | null;
-  source: 'lfm' | 'efficientnet';
+  /** 'lfm' is the model's answer; 'similar' are look-alike dishes from the food list. */
+  source: 'lfm' | 'similar';
 };
 
 type LlamaContext = Awaited<ReturnType<typeof LlamaRN.initLlama>>;
@@ -30,7 +29,8 @@ function getLlama(): Promise<LlamaContext | null> {
         if (!paths) return null;
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         const { initLlama } = require('llama.rn') as typeof LlamaRN;
-        const context = await initLlama({ model: paths.model, n_ctx: 1024, n_gpu_layers: 99, ctx_shift: false });
+        // 4096 leaves room for large label photos, which are split into several image tiles.
+        const context = await initLlama({ model: paths.model, n_ctx: 4096, n_gpu_layers: 99, ctx_shift: false });
         await context.initMultimodal({ path: paths.mmproj, use_gpu: true });
         return context;
       } catch {
@@ -42,7 +42,7 @@ function getLlama(): Promise<LlamaContext | null> {
 }
 
 export function isRecognizerAvailable(): boolean {
-  return FoodClassifier != null && (FoodClassifier.isLfmAvailable() || FoodClassifier.isModelAvailable());
+  return FoodClassifier?.isLfmAvailable() ?? false;
 }
 
 /** Optional: start loading the model before the user takes a photo. */
@@ -50,15 +50,16 @@ export function warmUpRecognizer() {
   void getLlama();
 }
 
-async function resizeForModel(uri: string, width: number, height: number): Promise<string> {
-  if (Math.max(width, height) <= MAX_SIDE) return uri;
-  const size = width >= height ? { width: MAX_SIDE, height: null } : { width: null, height: MAX_SIDE };
+export async function resizeForModel(uri: string, width: number, height: number, maxSide = MAX_SIDE): Promise<string> {
+  if (Math.max(width, height) <= maxSide) return uri;
+  const size = width >= height ? { width: maxSide, height: null } : { width: null, height: maxSide };
   const image = await ImageManipulator.ImageManipulator.manipulate(uri).resize(size).renderAsync();
   const saved = await image.saveAsync({ compress: 0.95, format: ImageManipulator.SaveFormat.JPEG });
   return saved.uri;
 }
 
-async function askLfm(uri: string): Promise<string | null> {
+/** Asks the fine-tuned LFM2.5-VL model a question about a photo. Null if the model isn't available. */
+export async function askModel(uri: string, prompt = PROMPT, maxTokens = 16): Promise<string | null> {
   const context = await getLlama();
   if (!context) return null;
   const result = await context.completion({
@@ -68,11 +69,11 @@ async function askLfm(uri: string): Promise<string | null> {
         // Image first, then the question — the order used in fine-tuning.
         content: [
           { type: 'image_url', image_url: { url: uri } },
-          { type: 'text', text: PROMPT },
+          { type: 'text', text: prompt },
         ],
       },
     ],
-    n_predict: 16,
+    n_predict: maxTokens,
     temperature: 0,
   });
   return result.text.trim();
@@ -109,9 +110,27 @@ export function matchDishName(answer: string): Food | null {
   return best ?? searchFoods(a)[0] ?? null;
 }
 
+// Words that don't say what kind of dish it is.
+const GENERIC = new Set(['masala', 'curry', 'with', 'plain', 'sweet', 'fresh', 'veg', 'fried', 'butter', 'style', 'special']);
+const words = (name: string) => normalise(name).split(' ').filter((w) => w.length >= 3 && !GENERIC.has(w));
+
+/** Look-alike dishes from the food list (e.g. "Masala Dosa" → Plain Dosa, Set Dosa) as quick alternatives. */
+function similarDishes(food: Food, count: number): Food[] {
+  const mine = new Set([...words(food.name), ...(food.aliases ?? []).flatMap(words)]);
+  return FOODS.filter((f) => f.id !== food.id)
+    .map((f) => {
+      const shared = [...new Set([...words(f.name), ...(f.aliases ?? []).flatMap(words)])].filter((w) => mine.has(w)).length;
+      return { f, score: shared * 2 + (f.category === food.category ? 1 : 0) };
+    })
+    .filter((x) => x.score >= 2)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, count)
+    .map((x) => x.f);
+}
+
 /**
- * Suggests dishes for a photo. The fine-tuned LFM2.5-VL answer comes first (best accuracy in our
- * tests); EfficientNet's top predictions fill the remaining slots as alternatives.
+ * Suggests dishes for a photo using the fine-tuned LFM2.5-VL model (the only model in the app),
+ * plus a couple of look-alike dishes from the food list as one-tap alternatives.
  */
 export async function recognizeDish(
   uri: string,
@@ -119,21 +138,33 @@ export async function recognizeDish(
   height: number
 ): Promise<{ suggestions: Suggestion[]; photoUri: string }> {
   const small = await resizeForModel(uri, width, height);
-  const [answer, predictions] = await Promise.all([
-    askLfm(small).catch(() => null),
-    FoodClassifier?.isModelAvailable()
-      ? FoodClassifier.classifyAsync(small, MAX_SUGGESTIONS).catch(() => [])
-      : Promise.resolve([]),
-  ]);
+  const answer = await askModel(small).catch(() => null);
+  const food = answer ? matchDishName(answer) : null;
+  if (!food) return { suggestions: [], photoUri: small };
+  const suggestions: Suggestion[] = [
+    { food, source: 'lfm' },
+    ...similarDishes(food, MAX_SUGGESTIONS - 1).map((f) => ({ food: f, source: 'similar' as const })),
+  ];
+  return { suggestions, photoUri: small };
+}
 
-  const suggestions: Suggestion[] = [];
-  const lfmFood = answer ? matchDishName(answer) : null;
-  if (lfmFood) suggestions.push({ food: lfmFood, confidence: null, source: 'lfm' });
-  for (const p of predictions) {
-    const food = findFood(p.label);
-    if (food && !suggestions.some((s) => s.food.id === food.id)) {
-      suggestions.push({ food, confidence: p.confidence, source: 'efficientnet' });
-    }
-  }
-  return { suggestions: suggestions.slice(0, MAX_SUGGESTIONS), photoUri: small };
+// Servings measured in containers can't be counted from a photo; everything else is "1 <piece>".
+const NOT_COUNTABLE = /plate|bowl|cup|glass|katori|serving|tbsp|tsp|scoop|set|can|bottle|packet|pack|ml\b|g\b|handful|portion|thali/i;
+
+/** Whether a food's serving is a single countable piece (1 idli, 1 dosa, 1 piece…). */
+export function isCountable(food: Food): boolean {
+  return /^1\s+\S/.test(food.serving) && !NOT_COUNTABLE.test(food.serving);
+}
+
+/**
+ * Asks the same model how many pieces of a dish are in the photo (e.g. 3 idlis).
+ * Returns null when it doesn't give a sensible number, so the user just picks the amount.
+ */
+export async function countPieces(uri: string, food: Food): Promise<number | null> {
+  // "Count the idlis." worked best in testing (it ignores chutney and other items on the plate).
+  const name = food.name.toLowerCase();
+  const plural = name.endsWith('s') ? name : `${name}s`;
+  const answer = await askModel(uri, `Count the ${plural}. Answer with a number.`, 6);
+  const n = Number((answer ?? '').match(/\d+/)?.[0]);
+  return Number.isInteger(n) && n >= 1 && n <= 12 ? n : null;
 }

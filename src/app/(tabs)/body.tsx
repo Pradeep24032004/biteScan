@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Alert, KeyboardAvoidingView, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { GradientCard } from '@/components/GradientCard';
 import { Button, Card, ChipRow, Pill, SectionTitle, StatTile } from '@/components/ui';
 import { getProfile, saveProfile } from '@/db/database';
 import { estimateBody } from '@/lib/bodyComposition';
@@ -12,7 +13,7 @@ import { countTrainingPhotos } from '@/lib/trainingPhotos';
 import { syncProfileFromHealth } from '@/lib/healthSync';
 import {
   ACTIVITY_OPTIONS,
-  GOAL_OPTIONS,
+  GOAL_PLANS,
   macroTargets,
   targetBreakdown,
   typicalIntake,
@@ -137,11 +138,13 @@ export default function BodyScreen() {
           </Card>
 
           <Card>
-            <Text style={type.label}>Your daily target</Text>
-            <Text style={styles.target}>
-              {breakdown.target.toLocaleString('en-IN')}
-              <Text style={styles.targetUnit}> kcal / day</Text>
-            </Text>
+            <GradientCard from="#F29A57" to="#C9561A" style={styles.targetHero}>
+              <Text style={styles.targetLabel}>YOUR DAILY TARGET</Text>
+              <Text style={styles.target}>
+                {breakdown.target.toLocaleString('en-IN')}
+                <Text style={styles.targetUnit}> kcal / day</Text>
+              </Text>
+            </GradientCard>
             {profile.customTargetKcal ? (
               <Text style={type.caption}>Using your custom target.</Text>
             ) : (
@@ -153,7 +156,7 @@ export default function BodyScreen() {
                 <BreakdownRow label={`Calories at rest (BMR) · ${breakdown.formula}`} value={`${breakdown.bmr}`} />
                 <BreakdownRow label={`With your activity (× ${breakdown.activityFactor})`} value={`${breakdown.maintenance}`} />
                 <BreakdownRow
-                  label={`Goal: ${GOAL_OPTIONS.find((g) => g.value === profile.goal)?.label.toLowerCase()}`}
+                  label={`Goal: ${GOAL_PLANS.find((g) => g.value === profile.goalPlan)?.label.toLowerCase()}`}
                   value={`${breakdown.goalAdjust >= 0 ? '+' : '−'}${Math.abs(breakdown.goalAdjust)}`}
                 />
               </View>
@@ -384,8 +387,10 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   grid: { flexDirection: 'row', gap: space.lg },
   buttonRow: { flexDirection: 'row', gap: space.sm },
-  target: { fontSize: 36, fontWeight: '800', color: colors.text, letterSpacing: -0.8, fontVariant: ['tabular-nums'] },
-  targetUnit: { fontSize: 16, fontWeight: '500', color: colors.muted, letterSpacing: 0 },
+  targetHero: { padding: space.lg, gap: 2 },
+  targetLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '800', letterSpacing: 1 },
+  target: { fontSize: 38, fontWeight: '800', color: colors.white, letterSpacing: -0.8, fontVariant: ['tabular-nums'] },
+  targetUnit: { fontSize: 16, fontWeight: '600', color: 'rgba(255,255,255,0.85)', letterSpacing: 0 },
   breakdown: { gap: 6, paddingVertical: space.xs },
   macroRow: { flexDirection: 'row', gap: space.sm },
   typical: {

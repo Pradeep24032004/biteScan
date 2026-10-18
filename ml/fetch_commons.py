@@ -33,7 +33,9 @@ THUMB_WIDTH = 500  # a standard Wikimedia thumbnail size; other widths return th
 MAX_PER_CLASS = 400
 FOREIGN_MAX = 80
 FOREIGN = {'pizza', 'burger', 'french_fries', 'pasta', 'hakka_noodles', 'club_sandwich', 'caesar_salad',
-           'fried_chicken', 'grilled_chicken', 'shawarma', 'chocolate_cake', 'ice_cream', 'donut'}
+           'fried_chicken', 'grilled_chicken', 'shawarma', 'chocolate_cake', 'ice_cream', 'donut',
+           'brownie', 'cupcake', 'cheesecake', 'cookies', 'chocolate_milkshake', 'cold_coffee', 'fresh_juice',
+           'watermelon_juice', 'iced_tea'}
 
 # BiteScan food id -> Commons categories as (name, depth). depth=1 also pulls direct subcategories.
 CATEGORIES: dict[str, list[tuple[str, int]]] = {
@@ -164,6 +166,32 @@ CATEGORIES: dict[str, list[tuple[str, int]]] = {
     'chocolate_cake': [('Chocolate cakes', 0)],
     'ice_cream': [('Ice cream', 0)],
     'donut': [('Doughnuts', 0)],
+    # Indian sweets (uncapped) — the main dessert focus.
+    'kaju_katli': [('Kaju katli', 0)],
+    'boondi_ladoo': [('Boondi laddu', 0), ('Motichoor laddu', 0)],
+    'peda': [('Peda', 1)],
+    'barfi': [('Barfi', 1)],
+    'coconut_barfi': [('Coconut barfi', 0)],
+    'kalakand': [('Kalakand', 0)],
+    'sandesh': [('Sandesh', 1)],
+    'modak': [('Modak', 1)],
+    'shrikhand': [('Shrikhand', 0)],
+    'rabri': [('Rabri', 1)],
+    'falooda': [('Falooda', 0)],
+    'basundi': [('Basundi', 0)],
+    'malpua': [('Malpua', 1)],
+    'ghevar': [('Ghevar', 0)],
+    'chikki': [('Chikki', 1)],
+    # Western desserts and drinks, capped like other foreign dishes.
+    'brownie': [('Brownies', 0)],
+    'cupcake': [('Cupcakes', 0)],
+    'cheesecake': [('Cheesecakes', 0)],
+    'cookies': [('Chocolate chip cookies', 0)],
+    'chocolate_milkshake': [('Milkshakes', 0)],
+    'cold_coffee': [('Iced coffee', 0)],
+    'fresh_juice': [('Orange juice', 0)],
+    'watermelon_juice': [('Watermelon juice', 1)],
+    'iced_tea': [('Iced tea', 0)],
 }
 
 PHOTO_MIMES = {'image/jpeg', 'image/png', 'image/webp'}

@@ -1,6 +1,5 @@
 package expo.modules.foodclassifier
 
-import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -12,7 +11,6 @@ private const val MMPROJ = "BiteScanLFM-mmproj.gguf"
 /**
  * Android side of BiteScan's food recogniser. The fine-tuned LFM2.5-VL model (run by llama.rn)
  * ships as APK assets; llama.cpp needs real file paths, so it's copied to app storage once.
- * The EfficientNet backup is Core ML (iOS-only), so it's reported as unavailable here.
  */
 class FoodClassifierModule : Module() {
   private val context
@@ -20,8 +18,6 @@ class FoodClassifierModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("FoodClassifier")
-
-    Function("isModelAvailable") { false }
 
     Function("isLfmAvailable") {
       val assets = context.assets.list("")?.toSet() ?: emptySet()
@@ -31,10 +27,6 @@ class FoodClassifierModule : Module() {
     AsyncFunction("prepareLfmModelAsync") {
       val dir = File(context.filesDir, "models").apply { mkdirs() }
       mapOf("model" to copyAsset(MODEL, dir).absolutePath, "mmproj" to copyAsset(MMPROJ, dir).absolutePath)
-    }
-
-    AsyncFunction("classifyAsync") { _: String, _: Int ->
-      throw CodedException("The EfficientNet classifier is only available on iOS.")
     }
   }
 

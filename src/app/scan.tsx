@@ -4,12 +4,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { Pulse, ScanFrame } from '@/components/Motion';
 import { Button, Card, Pill } from '@/components/ui';
-import { isRecognizerAvailable, recognizeDish, warmUpRecognizer, type Suggestion } from '@/lib/dishRecognizer';
+import { findFood } from '@/data/foods';
+import { countPieces, isCountable, isRecognizerAvailable, recognizeDish, warmUpRecognizer, type Suggestion } from '@/lib/dishRecognizer';
 import type { Meal } from '@/lib/nutrition';
 import { colors, radius, space, type } from '@/lib/theme';
-
-const LOW_CONFIDENCE = 0.35;
 
 const modelReady = isRecognizerAvailable();
 
@@ -53,11 +53,26 @@ export default function ScanScreen() {
     }
   };
 
-  const choose = (foodId?: string) =>
+  const [counting, setCounting] = useState(false);
+  const choose = async (foodId?: string) => {
+    // For dishes served by the piece, let the model count them so the amount is pre-filled.
+    const food = foodId ? findFood(foodId) : undefined;
+    let count: number | null = null;
+    if (food && modelPhoto && isCountable(food)) {
+      setCounting(true);
+      count = await countPieces(modelPhoto, food).catch(() => null);
+      setCounting(false);
+    }
     router.replace({
       pathname: '/add',
-      params: { ...params, ...(foodId ? { foodId } : {}), ...(modelPhoto ? { photoUri: modelPhoto } : {}) },
+      params: {
+        ...params,
+        ...(foodId ? { foodId } : {}),
+        ...(modelPhoto ? { photoUri: modelPhoto } : {}),
+        ...(count ? { count: String(count) } : {}),
+      },
     });
+  };
 
   if (!modelReady) {
     return (
@@ -75,18 +90,22 @@ export default function ScanScreen() {
     );
   }
 
-  // The LFM answer has no score; fall back to EfficientNet's confidence when it's the only signal.
-  const top = suggestions?.[0];
-  const unsure =
-    suggestions != null && (top == null || (top.source === 'efficientnet' && (top.confidence ?? 0) < LOW_CONFIDENCE));
+  const unsure = suggestions != null && suggestions.length === 0;
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       {photoUri ? (
-        <Image source={{ uri: photoUri }} style={styles.photo} />
+        <View style={styles.photoWrap}>
+          <Image source={{ uri: photoUri }} style={styles.photo} />
+          <ScanFrame scanning={busy || counting} />
+        </View>
       ) : (
         <Pressable style={[styles.photo, styles.placeholder]} onPress={() => pick('camera')}>
-          <Ionicons name="camera-outline" size={48} color={colors.primary} />
+          <ScanFrame scanning={false} color={colors.primary} />
+          <View style={styles.cameraBubble}>
+            <Pulse color={colors.primary} size={84} rings={2} duration={2600} strength={0.7} />
+            <Ionicons name="camera" size={40} color={colors.primary} />
+          </View>
           <Text style={type.heading}>Take a photo of your plate</Text>
           <Text style={[type.label, { textAlign: 'center' }]}>One dish filling most of the frame works best.</Text>
         </Pressable>
@@ -97,19 +116,25 @@ export default function ScanScreen() {
         <Button label="Gallery" icon="images-outline" variant="secondary" onPress={() => pick('library')} style={{ flex: 1 }} />
       </View>
 
-      {busy && (
+      <Pressable style={styles.packetLink} onPress={() => router.replace({ pathname: '/label', params })}>
+        <Ionicons name="barcode-outline" size={20} color={colors.primary} />
+        <Text style={[type.body, { color: colors.primary, fontWeight: '600', flex: 1 }]}>Packaged snack? Scan its label instead</Text>
+        <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+      </Pressable>
+
+      {(busy || counting) && (
         <Card style={styles.busy}>
           <ActivityIndicator color={colors.primary} />
-          <Text style={type.label}>Recognising your food…</Text>
+          <Text style={type.label}>{counting ? 'AI is counting the pieces…' : 'AI is looking at your plate…'}</Text>
         </Card>
       )}
 
       {suggestions && (
         <Card style={{ gap: 0 }}>
           <Text style={[type.heading, { marginBottom: space.sm }]}>
-            {unsure ? 'Not sure — is it one of these?' : 'Is this your food?'}
+            {unsure ? "Couldn't recognise this dish — search for it below" : 'Is this your food?'}
           </Text>
-          {suggestions.map(({ food, confidence, source }, i) => (
+          {suggestions.map(({ food, source }, i) => (
             <Pressable key={food.id} style={[styles.suggestion, i === 0 && styles.firstSuggestion]} onPress={() => choose(food.id)}>
               <View style={{ flex: 1, gap: 2 }}>
                 <Text style={[type.body, i === 0 && { fontWeight: '700' }]}>{food.name}</Text>
@@ -117,11 +142,7 @@ export default function ScanScreen() {
                   {food.serving} · {food.kcal} kcal
                 </Text>
               </View>
-              {source === 'lfm' ? (
-                <Pill label="Best match" />
-              ) : (
-                <Text style={[type.label, type.number]}>{Math.round((confidence ?? 0) * 100)}%</Text>
-              )}
+              {source === 'lfm' ? <Pill label="Best match" /> : <Text style={type.caption}>Similar</Text>}
               <Ionicons name="chevron-forward" size={18} color={colors.faint} />
             </Pressable>
           ))}
@@ -153,11 +174,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: space.sm,
     padding: space.xl,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
   },
   row: { flexDirection: 'row', gap: space.sm },
+  photoWrap: { borderRadius: radius.lg, overflow: 'hidden' },
+  cameraBubble: { width: 84, height: 84, borderRadius: 42, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: space.sm },
   busy: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   suggestion: {
     flexDirection: 'row',
@@ -168,4 +188,5 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   firstSuggestion: { borderTopWidth: 0 },
+  packetLink: { flexDirection: 'row', alignItems: 'center', gap: space.sm, paddingVertical: space.xs },
 });

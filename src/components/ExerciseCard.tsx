@@ -14,7 +14,7 @@ export function ExerciseCard({ item }: { item: PlanItem }) {
     <Pressable
       onPress={() => router.push({ pathname: '/exercise/[id]', params: { id: exercise.id } })}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.8 }]}>
-      <ExercisePicture exercise={exercise} size={60} />
+      <ExercisePicture exercise={exercise} size={64} animated />
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={styles.kind} numberOfLines={1}>
           <Text style={{ color: kind.fg }}>{kind.label.toUpperCase()}</Text>

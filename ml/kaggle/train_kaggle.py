@@ -23,15 +23,20 @@ from transformers import AutoModelForImageTextToText, AutoProcessor
 
 MODEL_ID = 'LiquidAI/LFM2.5-VL-450M'
 PROMPT = 'What Indian dish is in this photo? Reply with only the dish name.'
+# Same model also learns to read packaged-food nutrition labels (must match src/lib/labelReader.ts).
+LABEL_PROMPT = 'Read this nutrition label. List the values per 100 g.'
 EPOCHS, BATCH, GRAD_ACCUM, LR, RANK = 3, 4, 4, 2e-4, 16  # 4 x 4 = 16 photos per update; fits a 15 GB T4
 MAX_SIDE = 512
+# When continuing from a previous adapter: train on all labels plus this many dish photos so the
+# model keeps its dish skill, for fewer epochs at a lower learning rate.
+REPLAY_DISHES, CONTINUE_EPOCHS, CONTINUE_LR = 4000, 2, 1e-4
 OUT = Path('/kaggle/working')
 
 # ---------- data ----------
 manifest_path = next(Path('/kaggle/input').rglob('manifest.json'))
 manifest = json.loads(manifest_path.read_text())
 # Fail fast if Kaggle attached an older dataset version (it pins versions per notebook).
-EXPECTED_CLASSES = 104
+EXPECTED_CLASSES = 126
 assert len(manifest['classes']) == EXPECTED_CLASSES, f"Dataset has {len(manifest['classes'])} classes, expected {EXPECTED_CLASSES}: wrong dataset version attached"
 print('classes:', len(manifest['classes']), '| train', len(manifest['train']), '| val', len(manifest['val']))
 first = manifest['train'][0][0]
@@ -39,6 +44,11 @@ image_root = next(p for p in Path('/kaggle/input').rglob(Path(first).name) if st
 print('images under', image_root, '| GPU:', torch.cuda.get_device_name(0))
 names = manifest['names']
 
+label_augment = transforms.Compose([
+    # No cropping or flipping: the printed text must stay whole and readable.
+    transforms.RandomRotation(3, expand=True, fill=(255, 255, 255)),
+    transforms.ColorJitter(brightness=0.25, contrast=0.25, saturation=0.15),
+])
 augment = transforms.Compose([
     transforms.RandomResizedCrop(MAX_SIDE, scale=(0.5, 1.0), ratio=(0.75, 1.33)),
     transforms.RandomHorizontalFlip(),
@@ -48,8 +58,8 @@ processor = AutoProcessor.from_pretrained(MODEL_ID)
 PAD_ID = processor.tokenizer.pad_token_id or 0
 
 
-def encode(image, answer):
-    prompt = [{'role': 'user', 'content': [{'type': 'image', 'image': image}, {'type': 'text', 'text': PROMPT}]}]
+def encode(image, answer, question=PROMPT):
+    prompt = [{'role': 'user', 'content': [{'type': 'image', 'image': image}, {'type': 'text', 'text': question}]}]
     full = prompt + [{'role': 'assistant', 'content': [{'type': 'text', 'text': answer}]}]
     kw = dict(return_tensors='pt', return_dict=True, tokenize=True)
     prompt_len = processor.apply_chat_template(prompt, add_generation_prompt=True, **kw)['input_ids'].shape[1]
@@ -68,9 +78,13 @@ class TrainSet(Dataset):
         return len(self.rows)
 
     def __getitem__(self, i):
-        rel, label = self.rows[i]
-        image = augment(Image.open(image_root / rel).convert('RGB'))
-        return encode(image, names[label])
+        rel, kind, target = self.rows[i]
+        image = Image.open(image_root / rel).convert('RGB')
+        if kind == 'label':
+            image = label_augment(image)
+            image.thumbnail((MAX_SIDE, MAX_SIDE))
+            return encode(image, target, LABEL_PROMPT)
+        return encode(augment(image), names[target])
 
 
 def collate(items):
@@ -92,14 +106,27 @@ model = AutoModelForImageTextToText.from_pretrained(MODEL_ID, dtype=torch.bfloat
 # Recompute activations in the backward pass instead of storing them: much less GPU memory.
 model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={'use_reentrant': False})
 model.enable_input_require_grads()
-model = get_peft_model(model, LoraConfig(
-    r=RANK, lora_alpha=RANK * 2, lora_dropout=0.05,
-    target_modules=['q_proj', 'k_proj', 'v_proj', 'out_proj', 'in_proj', 'w1', 'w2', 'w3',
-                    'fc1', 'fc2', 'linear_1', 'linear_2'],
-))
+lora_init = next((p.parent for p in Path('/kaggle/input').rglob('adapter_config.json') if p.parent.name == 'lora_init'), None)
+if lora_init:
+    from peft import PeftModel
+    print('continuing from previous adapter', lora_init)
+    model = PeftModel.from_pretrained(model, str(lora_init), is_trainable=True)
+    EPOCHS, LR = CONTINUE_EPOCHS, CONTINUE_LR
+else:
+    model = get_peft_model(model, LoraConfig(
+        r=RANK, lora_alpha=RANK * 2, lora_dropout=0.05,
+        target_modules=['q_proj', 'k_proj', 'v_proj', 'out_proj', 'in_proj', 'w1', 'w2', 'w3',
+                        'fc1', 'fc2', 'linear_1', 'linear_2'],
+    ))
 model.print_trainable_parameters()
 
-loader = DataLoader(TrainSet(manifest['train']), batch_size=BATCH, shuffle=True, num_workers=4,
+dish_rows = [(rel, 'dish', label) for rel, label in manifest['train']]
+label_rows = [(rel, 'label', answer) for rel, answer in manifest.get('labels_train', [])]
+if lora_init and label_rows:
+    dish_rows = random.Random(0).sample(dish_rows, min(REPLAY_DISHES, len(dish_rows)))
+rows = dish_rows + label_rows
+print(f'training rows: {len(dish_rows)} dish + {len(label_rows)} label')
+loader = DataLoader(TrainSet(rows), batch_size=BATCH, shuffle=True, num_workers=4,
                     collate_fn=collate, drop_last=True, persistent_workers=True)
 trainable = [p for p in model.parameters() if p.requires_grad]
 optimizer = torch.optim.AdamW(trainable, lr=LR)
@@ -188,8 +215,55 @@ metrics = {
     'per_class_top1': dict(sorted(((c, round(per_correct[c] / per_total[c], 3)) for c in per_total), key=lambda t: t[1])),
     'sample_errors': errors,
 }
-(OUT / 'metrics.json').write_text(json.dumps(metrics, indent=2))
 print(f"VAL TOP-1: {metrics['top1']:.1%} on {n} images")
+
+
+# ---------- evaluate label reading ----------
+def label_numbers(text):
+    t = text.replace('**', '')
+    def grab(pattern):
+        m = re.search(pattern + r'[^0-9\n]{0,25}?(\d{1,5}(?:[.,]\d+)?)', t, re.I)
+        return float(m.group(1).replace(',', '.')) if m else None
+    return {
+        'kcal': grab(r'energy'), 'protein': grab(r'protein'), 'carbs': grab(r'carbohydrates?'),
+        'sugar': grab(r'sugars?'), 'fat': grab(r'(?:^|\n)\s*-?\s*fat'), 'sat_fat': grab(r'saturated fat'),
+        'fibre': grab(r'fib(?:re|er)'), 'sodium': grab(r'sodium'),
+    }
+
+
+label_val = manifest.get('labels_val', [])
+fields_right = Counter(); fields_total = Counter(); all_right = 0; label_examples = []
+for rel, truth in label_val:
+    image = Image.open(image_root / rel).convert('RGB')
+    image.thumbnail((MAX_SIDE, MAX_SIDE))
+    conv = [{'role': 'user', 'content': [{'type': 'image', 'image': image}, {'type': 'text', 'text': LABEL_PROMPT}]}]
+    inputs = processor.apply_chat_template(conv, add_generation_prompt=True, return_tensors='pt',
+                                           return_dict=True, tokenize=True).to('cuda')
+    with torch.no_grad(), torch.autocast('cuda', dtype=torch.bfloat16 if bf16 else torch.float16):
+        out = model.generate(**inputs, max_new_tokens=120, do_sample=False)
+    answer = processor.batch_decode(out[:, inputs['input_ids'].shape[1]:], skip_special_tokens=True)[0].strip()
+    want, got = label_numbers(truth), label_numbers(answer)
+    ok_all = True
+    for key, value in want.items():
+        if value is None:
+            continue
+        fields_total[key] += 1
+        ok = got[key] is not None and abs(got[key] - value) <= max(0.5, 0.03 * value)
+        fields_right[key] += ok
+        ok_all &= ok
+    all_right += ok_all
+    if len(label_examples) < 20:
+        label_examples.append({'file': rel, 'truth': truth, 'answer': answer})
+if label_val:
+    metrics['labels'] = {
+        'val_labels': len(label_val),
+        'all_fields_correct': all_right / len(label_val),
+        'field_accuracy': {k: round(fields_right[k] / fields_total[k], 3) for k in fields_total},
+        'examples': label_examples,
+    }
+    print(f"LABELS: all values right on {all_right / len(label_val):.1%} of {len(label_val)} labels; "
+          f"per field {metrics['labels']['field_accuracy']}")
+(OUT / 'metrics.json').write_text(json.dumps(metrics, indent=2))
 
 # Full merged model (bf16) for conversion to GGUF / on-device use.
 model.to(torch.bfloat16).save_pretrained(OUT / 'merged_model', safe_serialization=True)

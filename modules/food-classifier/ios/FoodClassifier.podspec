@@ -1,8 +1,8 @@
 Pod::Spec.new do |s|
   s.name           = 'FoodClassifier'
   s.version        = '1.0.0'
-  s.summary        = 'On-device Indian food classifier for BiteScan'
-  s.description    = 'Runs the BiteScan Core ML food model with Vision.'
+  s.summary        = 'Bundles the BiteScan food model'
+  s.description    = 'Ships the fine-tuned LFM2.5-VL GGUF files that llama.rn runs on-device.'
   s.author         = ''
   s.homepage       = 'https://docs.expo.dev/modules/'
   s.platforms      = {
@@ -20,9 +20,8 @@ Pod::Spec.new do |s|
 
   s.source_files = "**/*.{h,m,mm,swift,hpp,cpp}"
 
-  # BiteScanFood.mlpackage (EfficientNet, ml/export_coreml.py) and the LFM2.5-VL GGUF files
-  # (BiteScanLFM.gguf + BiteScanLFM-mmproj.gguf). Each is optional; the JS side checks what's bundled.
+  # The LFM2.5-VL GGUF files (BiteScanLFM.gguf + BiteScanLFM-mmproj.gguf) exported by ml/.
   s.resource_bundles = {
-    'FoodClassifierModel' => ['models/*.mlpackage', 'models/*.gguf']
+    'FoodClassifierModel' => ['models/*.gguf']
   }
 end

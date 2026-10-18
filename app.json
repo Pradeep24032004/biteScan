@@ -2,7 +2,7 @@
   "expo": {
     "name": "BiteScan",
     "slug": "bitescan",
-    "version": "1.0.0",
+    "version": "1.0.7",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -12,7 +12,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "appleTeamId": "A767Z4L4DT"
+      "appleTeamId": "A767Z4L4DT",
+      "buildNumber": "8"
     },
     "plugins": [
       "expo-router",
@@ -42,7 +43,16 @@
         }
       ],
       "./plugins/withSceneLifecycle",
-      "./plugins/withoutPushEntitlement"
+      "./plugins/withoutPushEntitlement",
+      "./plugins/withReleaseSigning",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false
+        }
+      ]
     ],
     "scheme": "bitescan",
     "platforms": [
@@ -59,7 +69,11 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 8,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     }
   }
 }

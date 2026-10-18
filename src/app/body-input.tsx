@@ -5,9 +5,9 @@ import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Banner, Button, Card } from '@/components/ui';
-import { getProfile, saveProfile } from '@/db/database';
+import { addBodyLog, getProfile, saveProfile } from '@/db/database';
 import { parseInBodyText, type InBodyReading } from '@/lib/bodyComposition';
-import { calculateTarget, type Profile } from '@/lib/nutrition';
+import { calculateTarget, toDateKey, type Profile } from '@/lib/nutrition';
 import { colors, radius, space, type } from '@/lib/theme';
 
 type FieldKey = 'weightKg' | 'bodyFatPct' | 'skeletalMuscleKg' | 'bmrKcal';
@@ -86,6 +86,13 @@ export default function BodyInputScreen() {
       bodyMeasuredAt: new Date().toISOString(),
     };
     await saveProfile(db, updated);
+    await addBodyLog(db, {
+      date: toDateKey(new Date()),
+      weightKg: weight,
+      bodyFatPct: fat,
+      muscleKg: updated.skeletalMuscleKg,
+      source: paste ? 'inbody' : 'manual',
+    });
     Alert.alert('Saved', `Your daily target is now ${calculateTarget(updated).toLocaleString('en-IN')} kcal.`);
     router.back();
   };

@@ -1,8 +1,8 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { getProfile, saveProfile } from '@/db/database';
+import { addBodyLog, getProfile, saveProfile } from '@/db/database';
 import { readLatestBody } from '@/lib/health';
-import type { Profile } from '@/lib/nutrition';
+import { toDateKey, type Profile } from '@/lib/nutrition';
 
 const AUTO_SYNC_INTERVAL_MS = 60 * 60 * 1000;
 
@@ -26,6 +26,15 @@ export async function syncProfileFromHealth(db: SQLiteDatabase): Promise<Profile
     },
   };
   await saveProfile(db, updated);
+  if (newer && body.weightKg != null) {
+    await addBodyLog(db, {
+      date: toDateKey(body.measuredAt ?? new Date()),
+      weightKg: body.weightKg,
+      bodyFatPct: body.bodyFatPct ?? null,
+      muscleKg: null,
+      source: 'apple-health',
+    });
+  }
   return updated;
 }
 

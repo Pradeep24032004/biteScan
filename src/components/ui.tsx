@@ -9,7 +9,10 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
+import { PressableScale } from '@/components/Motion';
+import { select, tap } from '@/lib/haptics';
 import { colors, radius, shadow, space, type } from '@/lib/theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
@@ -40,18 +43,35 @@ type ButtonProps = {
 export function Button({ label, onPress, icon, variant = 'primary', disabled, loading, style }: ButtonProps) {
   const fg = variant === 'primary' ? colors.white : colors.primary;
   return (
-    <Pressable
-      onPress={onPress}
+    <PressableScale
+      onPress={() => {
+        tap();
+        onPress();
+      }}
       disabled={disabled || loading}
-      style={({ pressed }) => [
+      accessibilityRole="button"
+      ripple={{ color: variant === 'primary' ? colors.white : colors.primary, radius: radius.md }}
+      style={[
         styles.button,
         variant === 'primary' && styles.buttonPrimary,
         variant === 'secondary' && styles.buttonSecondary,
         variant === 'ghost' && styles.buttonGhost,
         (disabled || loading) && { opacity: 0.45 },
-        pressed && { opacity: 0.8 },
         style,
       ]}>
+      {variant === 'primary' && (
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radius.md, overflow: 'hidden' }]}>
+          <Svg width="100%" height="100%" preserveAspectRatio="none">
+            <Defs>
+              <LinearGradient id="btn" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor="#2FA36B" />
+                <Stop offset="1" stopColor="#16603F" />
+              </LinearGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill="url(#btn)" />
+          </Svg>
+        </View>
+      )}
       {loading ? (
         <ActivityIndicator color={fg} />
       ) : (
@@ -60,13 +80,18 @@ export function Button({ label, onPress, icon, variant = 'primary', disabled, lo
           <Text style={[styles.buttonText, { color: fg }]}>{label}</Text>
         </>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 
 export function Chip({ label, selected, onPress }: { label: string; selected?: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, selected && styles.chipSelected]}>
+    <Pressable
+      onPress={() => {
+        select();
+        onPress();
+      }}
+      style={[styles.chip, selected && styles.chipSelected]}>
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
     </Pressable>
   );
@@ -157,7 +182,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: space.sm,
   },
-  buttonPrimary: { backgroundColor: colors.primary },
+  buttonPrimary: { backgroundColor: colors.primary, ...shadow, shadowColor: colors.primary, shadowOpacity: 0.25 },
   buttonSecondary: { backgroundColor: colors.primarySoft },
   buttonGhost: { backgroundColor: 'transparent' },
   buttonText: { fontSize: 16, fontWeight: '600' },
